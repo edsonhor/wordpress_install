@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Exit on error
-set -e
+set -eux
 
-# installing packages 
+# installing packages
 
 sudo apt update
 sudo apt install apache2 \
@@ -71,14 +71,13 @@ mariadb_root_pw="root-password"  # Root password for MariaDB/MySQL
 # Run MySQL commands to create the database and user
 echo "Creating WordPress database and user..."
 
-sudo mysql -u root -p$mariadb_root_pw <<MYSQL_SCRIPT
-CREATE DATABASE $db_name;
-CREATE USER '$db_user'@'localhost' IDENTIFIED BY '$db_password';
+MYSQL_PWD=$mariadb_root_pw sudo mysql -u root <<MYSQL_SCRIPT
+CREATE DATABASE IF NOT EXISTS $db_name;
+CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_password';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER
     ON $db_name.*
     TO '$db_user'@'localhost';
 FLUSH PRIVILEGES;
-EXIT;
 MYSQL_SCRIPT
 
 echo "Database and user created successfully."
@@ -89,17 +88,19 @@ sudo -u www-data cp /srv/www/wordpress/wp-config-sample.php /srv/www/wordpress/w
 # Update wp-config.php with database details
 echo "Updating wp-config.php..."
 
+# Define the path for the wp-config.php file
+wp_config_path="/srv/www/wordpress/wp-config.php"
+
 sudo -u www-data sed -i "s/database_name_here/$db_name/" "$wp_config_path"
 sudo -u www-data sed -i "s/username_here/$db_user/" "$wp_config_path"
 sudo -u www-data sed -i "s/password_here/$db_password/" "$wp_config_path"
 
 echo "wp-config.php updated successfully."
 
- Define the path for the wp-config.php file
-wp_config_path="/srv/www/wordpress/wp-config.php"
 
 # Authentication keys and salts
-auth_keys_salts=$(cat <<EOL
+# Authentication keys and salts
+auth_keys_salts=$(cat <<'EOF'
 define('AUTH_KEY',         'n0VFP<#YZrRY8}lQ![[|bjRFJ/ 7#(aSAk*BIfukkf|K{u<GO8Yv$V/|cP#=Q9W+');
 define('SECURE_AUTH_KEY',  '|;$f$++=uZ=u55NdDirwf/=i2NYA-arCm.0DhN8k5;K{m#mU+6C#<bfV %|x}p{]');
 define('LOGGED_IN_KEY',    'sG?8.pede6O=C%SC4.x{6vNdOSZ$1A-nb]K)?^dA_K[q@OkU!WzS> |e7`O`0M2K');
@@ -108,7 +109,7 @@ define('AUTH_SALT',        'BzEGJ(q$+9jxYE]Hq]3hhJLuH3xA@>1Sz+qZ]3n@!x*SgI- ssTE
 define('SECURE_AUTH_SALT', '7aGp&ZCbNatx}~dbKS$^zJsd&vU*3DR-U>QG`|#A_aTQ|O;bcO3rt~N9l(G<%-eM');
 define('LOGGED_IN_SALT',   '2ZuGo|jQymUL]e/Q4:zMj<gZ-5a0W;84%fa xg?K#<$Ju_l4 E$hnG+vXUsk|.pO');
 define('NONCE_SALT',       '0[YqWejN9v]4X|O?pVu.z=WK$-Je[uCjNU;-j=6Q;}.|M?3_d{hkydz|+P5_hi#4');
-EOL
+EOF
 )
 
 # Update wp-config.php with authentication keys and salts
